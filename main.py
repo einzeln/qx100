@@ -205,21 +205,32 @@ def communicationThread():
 
 
 def SerialCommunicationThread():
-    ser = serial.Serial('/dev/USB0')  # open serial port for reading
+    ser = serial.Serial('/dev/ttyUSB0', 9600, timeout=2)  # open serial port for reading
     print(ser.name)
-    command = ser.readLine()
-    if (command == "capture"):
-        form.takePic()
-    elif (command == "zin"):
-        form.zoomIn()
-    elif (command == "zin_stop"):
-        form.zoomInStop()
-    elif (command == "zout"):
-        form.zoomOut()
-    elif (command == "zout_stop"):
-        form.zoomOutStop()
-    else:
-        print ("unknown command: %s " % command)
+
+    while(True):
+        command = ser.readline().decode("utf-8")
+        if ( not command):
+            continue
+        print ("received command : %s" % command)
+        if (command == 'capture'):
+            print ("taking picture")
+            form.takePic()
+        elif (command == 'zin'):
+            print ("zooming in")
+            form.zoomIn()
+        elif (command == 'zin_stop'):
+            print ("stopping zoom in")
+            form.zoomInStop()
+        elif (command == 'zout'):
+            print ("zooming out")
+            form.zoomOut()
+        elif (command == 'zout_stop'):
+            print ("stopping zoom out")
+            form.zoomOutStop()
+        else:
+            print ("unknown command: %s " % command)
+
 
 class Form(QLabel):
 
@@ -245,13 +256,13 @@ class Form(QLabel):
     def getSupportedExposureModes(self, grid):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "getAvailableExposureMode", "params": [], "version": "1.0"})
-        self.label.setText("Current Mode:" + resp["result"][0])
+        # self.label.setText("Current Mode:" + resp["result"][0])
         available_modes = resp["result"][1]
         #available_modes = ['Intelligent Auto', 'Superior Auto', 'Program Auto', 'Aperture', 'Shutter']
         return available_modes
 
     def setExposureMode(self, m):
-        self.label.setText("Setting Mode")
+        # self.label.setText("Setting Mode")
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "setExposureMode", "params": [m], "version": "1.0"})
         return (resp["result"][0] == 0)
@@ -286,10 +297,10 @@ class Form(QLabel):
     def takePic(self):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "actTakePicture", "params": [], "version": "1.0"})
-        downloadImage(resp["result"][0][0])
+        # downloadImage(resp["result"][0][0])
 
     def zoomIn(self):
-        self.label.setText("Zoom In")
+        # self.label.setText("Zoom In")
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["in", "start"], "version": "1.0"})
 
@@ -301,7 +312,7 @@ class Form(QLabel):
         # self.label.setText("Zoom Position: "+ str(feedback["result"][2]["zoomPosition"]))
 
     def zoomOut(self):
-        self.label.setText("Zoom In")
+        # self.label.setText("Zoom In")
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["out", "start"], "version": "1.0"})
 
@@ -337,4 +348,5 @@ if __name__ == "__main__":
     communication = threading.Thread(target = communicationThread)
     serialThread = threading.Thread(target = SerialCommunicationThread)
     communication.start()
+    serialThread.start()
     sys.exit(app.exec_())
