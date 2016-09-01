@@ -7,6 +7,7 @@ import functools
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+import serial
 
 lock = threading.Lock()
 
@@ -24,54 +25,10 @@ class ImageDisplay(QLabel):
 
         lock.acquire()
         try:
-          #draws bullseye cross on image
-
-          if overviewgrid == "bullseye":
-              qp = QPainter()
-              image_height = image.height()
-              image_width = image.width()
-              bull_size = 150
-
-              qp.begin(image)
-              pen = QPen(Qt.red, 1, Qt.SolidLine)
-              qp.setPen(pen)
-              qp.drawLine(image_width/2, bull_size, image_width/2, image_height-bull_size)
-              qp.drawLine((bull_size*1.5), image_height/2, image_width-(bull_size*1.5), image_height/2)
-              qp.end()
-              self.setPixmap(QPixmap.fromImage(image))
-          elif overviewgrid == "gridlines":
-              qp = QPainter()
-              image_height = image.height()
-              image_width = image.width()
-
-              qp.begin(image)
-              pen = QPen(Qt.white, 1, Qt.SolidLine)
-              qp.setPen(pen)
-              grid_h = image_width/20;
-              grid_v = image_height/15;
-              for n in range(0, 20):
-                  qp.drawLine(grid_h*n, 0, grid_h*n, image_height)
-              for n in range(0, 15):
-                  qp.drawLine(0, grid_v*n, image_width, grid_v*n)
-
-
-              qp.end()
-
-              self.setPixmap(QPixmap.fromImage(image))
-          else:
-              self.setPixmap(QPixmap.fromImage(image))
-
-
-          #print(overviewgrid)
-
-
-
-
+          self.setPixmap(QPixmap.fromImage(image))
         finally:
             lock.release()
         QLabel.paintEvent(self, event)
-
-
 
 
 pId = 0
@@ -246,90 +203,44 @@ def communicationThread():
 
 #    conn.close()
 
-class Form(QDialog):
+
+def SerialCommunicationThread():
+    ser = serial.Serial('/dev/USB0')  # open serial port for reading
+    print(ser.name)
+    command = ser.readLine()
+    if (command == "capture"):
+        form.takePic()
+    elif (command == "zin"):
+        form.zoomIn()
+    elif (command == "zin_stop"):
+        form.zoomInStop()
+    elif (command == "zout"):
+        form.zoomOut()
+    elif (command == "zout_stop"):
+        form.zoomOutStop()
+    else:
+        print ("unknown command: %s " % command)
+
+class Form(QLabel):
 
 
     def __init__(self, parent=None):
         super(Form, self).__init__(parent)
-
-        #camera grid
-        gridOnBtn = QPushButton("Grid On")
-        gridEyeBtn = QPushButton("Bullseye")
-        gridOffBtn = QPushButton("Grid Off")
-
-        #camera functions
-        takePicBtn = QPushButton("Take Picture")
-        zoomInBtn = QPushButton("Zoom in")
-        zoomOutBtn = QPushButton("Zoom out")
-        self.FComboBox = QComboBox(self)
-        self.ISOComboBox = QComboBox(self)
-        self.ShutterComboBox = QComboBox(self)
-        self.label = QLabel("Standing by..")
-
+        self.setScaledContents(True)
         #live stream
-        imgDisplay = ImageDisplay()
-        imgDisplay.setMinimumSize(640, 480)
+        # self.setMinimumSize(640, 480)
         #imgDisplay.setMinimumSize(1000, 1000)
 
-        imgDisplay.show()
-
-        grid = QGridLayout()
-        grid.setSpacing(10)
-        grid.addWidget(imgDisplay,2,0)
-
-        controlLayout = QGridLayout()
-        controlLayout.setSpacing(10)
-        controlLayout.addWidget(zoomInBtn, 0, 0)
-        controlLayout.addWidget(takePicBtn, 0, 1)
-        controlLayout.addWidget(zoomOutBtn, 0, 2)
-        controlLayout.addWidget(QLabel("Aperture"),2,0)
-        controlLayout.addWidget(self.FComboBox,2,1)
-        controlLayout.addWidget(QLabel("Shutter Speed"),3,0)
-        controlLayout.addWidget(self.ShutterComboBox,3,1)
-        controlLayout.addWidget(QLabel("ISO"),4,0)
-        controlLayout.addWidget(self.ISOComboBox,4,1)
-        controlLayout.addWidget(gridOnBtn,5,0)
-        controlLayout.addWidget(gridEyeBtn,5,1)
-        controlLayout.addWidget(gridOffBtn,5,2)
-        controlLayout.addWidget(self.label,6,1)
-
-        self.getSupportedExposureModes(grid)
-        grid.addLayout(controlLayout,2,1)
-
-        self.setLayout(grid)
-
-        #conenections
-        self.connect(gridOnBtn, SIGNAL("clicked()"), self.setGridon)
-        self.connect(gridEyeBtn, SIGNAL("clicked()"), self.setGridEye)
-        self.connect(gridOffBtn, SIGNAL("clicked()"), self.setGridOff)
-
-        self.connect(takePicBtn, SIGNAL("clicked()"), self.takePic)
-        self.connect(zoomInBtn, SIGNAL("pressed()"), self.zoomIn)
-        self.connect(zoomInBtn, SIGNAL("released()"), self.zoomInStop)
-        self.connect(zoomOutBtn, SIGNAL("pressed()"), self.zoomOut)
-        self.connect(zoomOutBtn, SIGNAL("released()"), self.zoomOutStop)
-        self.FComboBox.currentIndexChanged['QString'].connect(self.handleFChange)
-        self.ISOComboBox.currentIndexChanged['QString'].connect(self.handleISOChange)
-        self.ShutterComboBox.currentIndexChanged['QString'].connect(self.handleShutterChange)
-
-        #camera controls
-        self.getAvailableFNumber(grid)
-        self.getAvailableIsoSpeedRate(grid)
-        self.getAvailableShutterSpeed(grid)
-
-    def setGridon(self):
+    def paintEvent(self, event):
+        global lock
         global overviewgrid
-        overviewgrid = "gridlines"
 
-    def setGridEye(self):
-        global overviewgrid
-        overviewgrid = "bullseye"
-
-
-    def setGridOff(self):
-        global overviewgrid
-        overviewgrid = "off"
-
+        lock.acquire()
+        try:
+            self.setPixmap(QPixmap.fromImage(image))
+        finally:
+            lock.release()
+        QLabel.paintEvent(self, event)
 
     def getSupportedExposureModes(self, grid):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
@@ -337,59 +248,42 @@ class Form(QDialog):
         self.label.setText("Current Mode:" + resp["result"][0])
         available_modes = resp["result"][1]
         #available_modes = ['Intelligent Auto', 'Superior Auto', 'Program Auto', 'Aperture', 'Shutter']
-        layout = QHBoxLayout()
-        label = QLabel("Camera Modes:")
-        layout.addWidget(label)
-        for m in available_modes:
-            b = QPushButton(m)
-            self.connect(b, SIGNAL("clicked()"), functools.partial(self.setExposureMode, m, grid))
-            layout.addWidget(b)
-        layout.addStretch()
-        grid.addLayout(layout,0,0)
+        return available_modes
 
-    def setExposureMode(self, m, grid):
+    def setExposureMode(self, m):
         self.label.setText("Setting Mode")
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "setExposureMode", "params": [m], "version": "1.0"})
-        if resp["result"][0] == 0:
-            self.clearCombo(self.ISOComboBox)
-            self.clearCombo(self.FComboBox)
-            self.clearCombo(self.ShutterComboBox)
+        return (resp["result"][0] == 0)
 
-            self.label.setText("New Mode Set:" + m)
-            self.getAvailableFNumber(grid)
-            self.getAvailableIsoSpeedRate(grid)
-            self.getAvailableShutterSpeed(grid)
-
-    def getAvailableFNumber(self, grid):
+    def getAvailableFNumber(self):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "getAvailableFNumber", "params": [], "version": "1.0"})
         try:
             available_modes = resp["result"][1]
-            self.FComboBox.addItems(available_modes)
+            return available_modes
         except:
             pass
 
-    def getAvailableIsoSpeedRate(self, grid):
+    def getAvailableIsoSpeedRate(self):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "getAvailableIsoSpeedRate", "params": [], "version": "1.0"})
         try:
             available_modes = resp["result"][1]
-            self.ISOComboBox.addItems(available_modes)
+            return available_modes
         except:
             pass
 
-    def getAvailableShutterSpeed(self, grid):
+    def getAvailableShutterSpeed(self):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "getAvailableShutterSpeed", "params": [], "version": "1.0"})
         try:
             available_modes = resp["result"][1]
-            self.ShutterComboBox.addItems(available_modes)
+            return available_modes
         except:
             pass
 
     def takePic(self):
-        self.label.setText("Capturing Image")
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "actTakePicture", "params": [], "version": "1.0"})
         downloadImage(resp["result"][0][0])
@@ -404,9 +298,7 @@ class Form(QDialog):
         resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["in", "stop"], "version": "1.0"})
         feedback = postRequest(conn, "camera", {"method": "getEvent", "params": [False], "id": 4, "version": "1.0"})
         print(feedback["result"][2]["zoomPosition"])
-        self.label.setText("Zoom Position: "+ str(feedback["result"][2]["zoomPosition"]))
-
-
+        # self.label.setText("Zoom Position: "+ str(feedback["result"][2]["zoomPosition"]))
 
     def zoomOut(self):
         self.label.setText("Zoom In")
@@ -418,7 +310,7 @@ class Form(QDialog):
         resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["out", "stop"], "version": "1.0"})
         feedback = postRequest(conn, "camera", {"method": "getEvent", "params": [False], "id": 4, "version": "1.0"})
         print(feedback["result"][2]["zoomPosition"])
-        self.label.setText("Zoom Position: "+ str(feedback["result"][2]["zoomPosition"]))
+        # self.label.setText("Zoom Position: "+ str(feedback["result"][2]["zoomPosition"]))
 
 
     def handleFChange(self, text):
@@ -436,17 +328,13 @@ class Form(QDialog):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "setShutterSpeed", "params": [text], "version": "1.0"})
 
-    def clearCombo(self,combo):
-        for i in range(combo.count(),-1,-1):
-                print(i)
-                combo.removeItem(i)
-
 form = Form()
-form.show()
-
+# form.show()
+form.showFullScreen()
 
 
 if __name__ == "__main__":
     communication = threading.Thread(target = communicationThread)
+    serialThread = threading.Thread(target = SerialCommunicationThread)
     communication.start()
     sys.exit(app.exec_())
