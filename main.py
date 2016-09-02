@@ -228,6 +228,12 @@ def SerialCommunicationThread():
         elif (command == 'zout_stop'):
             print ("stopping zoom out")
             form.zoomOutStop()
+        elif (command == 'zout_step'):
+            print ("zoom out step")
+            form.zoomOutStep()
+        elif (command == 'zin_step'):
+            print ("zoom in step")
+            form.zoomInStep()
         else:
             print ("unknown command: %s " % command)
 
@@ -304,6 +310,11 @@ class Form(QLabel):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["in", "start"], "version": "1.0"})
 
+    def zoomInStep(self):
+        # self.label.setText("Zoom In")
+        conn = http.client.HTTPConnection("10.0.0.1", 10000)
+        resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["in", "1shot"], "version": "1.0"})
+
     def zoomInStop(self):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["in", "stop"], "version": "1.0"})
@@ -315,6 +326,10 @@ class Form(QLabel):
         # self.label.setText("Zoom In")
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
         resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["out", "start"], "version": "1.0"})
+
+    def zoomOutStep(self):
+        conn = http.client.HTTPConnection("10.0.0.1", 10000)
+        resp = postRequest(conn, "camera", {"method": "actZoom", "params": ["out", "1shot"], "version": "1.0"})
 
     def zoomOutStop(self):
         conn = http.client.HTTPConnection("10.0.0.1", 10000)
